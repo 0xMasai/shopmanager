@@ -29,6 +29,7 @@ export function renderSell(root, ctx) {
         .map(
           (i) => `
       <button class="item-card" data-id="${i.id}">
+        ${i.photo ? `<img class="item-photo" src="${i.photo}" alt="" />` : ''}
         <span class="item-name">${esc(i.name)}</span>
         <span class="item-price">${fmt(i.price)}</span>
         <span class="item-stock ${i.stockQty <= (i.lowStock ?? 0) ? 'low' : ''}">${i.stockQty} left</span>
