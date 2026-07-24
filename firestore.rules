@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function inShop(shopId) {
+      return request.auth != null && profile().shopId == shopId;
+    }
+    function isOwner(shopId) {
+      return inShop(shopId) && profile().role == 'owner';
+    }
+
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // profiles are created from the Firebase console
+    }
+
+    match /shops/{shopId} {
+      allow read: if inShop(shopId);
+      allow write: if false;
+
+      match /items/{itemId} {
+        allow read: if inShop(shopId);
+        allow create, delete: if isOwner(shopId);
+        // Staff may only change stock levels (selling & receiving).
+        // Only the owner can touch names and prices.
+        allow update: if isOwner(shopId)
+          || (inShop(shopId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockQty']));
+      }
+
+      match /sales/{saleId} {
+        allow read, create: if inShop(shopId);
+        // Sales are permanent. Nobody — not even the owner — can edit or
+        // delete one from the app. That is the anti-theft guarantee.
+        allow update, delete: if false;
+      }
+
+      match /movements/{id} {
+        allow read, create: if inShop(shopId);
+        allow update, delete: if false;
+      }
+
+      match /dayCloses/{date} {
+        allow read, create: if inShop(shopId);
+        // One report per day, locked once submitted.
+        allow update, delete: if false;
+      }
+    }
+  }
+}
