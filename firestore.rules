@@ -14,12 +14,32 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false; // profiles are created from the Firebase console
+      // Self-service sign-up: a signed-in user may create their OWN profile once,
+      // with a valid role and a shopId. Owners generate a new shop; staff pass the
+      // shop code they were given. Role and shopId are locked afterwards.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.shopId is string
+        && request.resource.data.role in ['owner', 'staff'];
+      // One-time self-heal: an account whose profile has no shopId yet may attach
+      // one (becoming the owner of a new shop). An existing shopId can never change.
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && !('shopId' in resource.data)
+        && request.resource.data.shopId is string
+        && request.resource.data.role == 'owner'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shopId', 'role', 'name']);
+      allow delete: if false;
     }
 
     match /shops/{shopId} {
       allow read: if inShop(shopId);
-      allow write: if false;
+      // An owner may create their own shop document during sign-up (their profile,
+      // written first, already marks them owner of this shopId). Never editable after.
+      allow create: if isOwner(shopId)
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
 
       match /items/{itemId} {
         allow read: if inShop(shopId);

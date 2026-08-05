@@ -41,8 +41,10 @@ shop owner through a sale, a day close, and the owner report.
 Each client gets their own Firebase project (free Spark plan is enough to start).
 
 1. **Create a Firebase project** at console.firebase.google.com.
-2. **Add a Web app** (Project settings → Your apps) and copy the config object
-   into [src/firebase-config.js](src/firebase-config.js).
+2. **Add a Web app** (Project settings → Your apps) and set the config. Either
+   create a `.env` file (copy [.env.example](.env.example) and fill it in — this
+   keeps secrets out of git), or paste the config object into `PASTED_CONFIG` in
+   [src/firebase-config.js](src/firebase-config.js).
 3. **Enable Authentication** → Sign-in method → Email/Password.
 4. **Create Firestore** (production mode), then publish the contents of
    [firestore.rules](firestore.rules) under Firestore → Rules.
@@ -58,9 +60,40 @@ Each client gets their own Firebase project (free Spark plan is enough to start)
 
    The `shopId` is any slug you choose — all shop data lives under
    `shops/{shopId}/…`. One project per client keeps data fully separated.
-6. **Deploy**: `npm run build`, then host `dist/` on Firebase Hosting
-   (`npx firebase-cli deploy`) or any static host. On the phone, open the URL
-   in Chrome → menu → **Add to Home screen**.
+6. **Deploy to Firebase Hosting**:
+
+   ```bash
+   npm install -g firebase-tools   # once
+   firebase login                  # once
+   # set your project id in .firebaserc (replace YOUR_FIREBASE_PROJECT_ID)
+   npm run deploy                  # builds dist/ and deploys hosting + rules
+   ```
+
+   `npm run deploy:hosting` deploys only the app, `npm run deploy:rules` only
+   the Firestore rules. On the phone, open the hosted URL in Chrome → menu →
+   **Add to Home screen**.
+
+## Desktop app (Windows)
+
+The same codebase ships as a native Windows desktop app via Electron. It loads
+the bundled build locally (no server needed) and works fully offline — data
+still syncs through Firestore when the connection returns.
+
+```bash
+npm install            # installs Electron + electron-builder (first time)
+npm run electron:dev   # run the desktop app against the Vite dev server
+npm run desktop:build  # produce a Windows installer in release/
+```
+
+`npm run desktop:build` outputs `release/Shop Manager Setup <version>.exe` — a
+standard installer (choose install location, desktop + start-menu shortcuts).
+Build the Windows installer **on a Windows machine**; cross-building from other
+OSes needs extra tooling. Use `npm run desktop:dir` for a quick unpacked build
+without an installer.
+
+Offline behaviour is identical to the web app: Firestore's on-device cache
+(`persistentLocalCache`) holds items, sales and reports, so the shop keeps
+selling with no internet and everything reconciles once it reconnects.
 
 ## Daily routine that makes it work
 
